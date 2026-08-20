@@ -113,6 +113,32 @@ class CourseSearchTool(Tool):
         
         return "\n\n".join(formatted)
 
+class CourseListTool(Tool):
+    """Tool for listing every course in the catalog by title"""
+
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for this tool"""
+        return {
+            "name": "get_course_list",
+            "description": "Get the full list of all available course titles. Use this for questions about which/how many courses exist or to list all courses — NOT search_course_content, which only returns a handful of content excerpts and cannot enumerate the catalog.",
+            "input_schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+
+    def execute(self) -> str:
+        """Return every course title in the catalog"""
+        titles = self.store.get_existing_course_titles()
+        if not titles:
+            return "No courses found."
+        return "\n".join(f"- {title}" for title in titles)
+
+
 class ToolManager:
     """Manages available tools for the AI"""
     
