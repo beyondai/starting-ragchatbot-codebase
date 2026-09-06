@@ -75,17 +75,30 @@ Provide only the direct answer to what was asked.
         if tools:
             api_params["tools"] = tools
             api_params["tool_choice"] = {"type": "auto"}
-        
-        # Get response from Claude
-        response = self.client.messages.create(**api_params)
-        
-        # Handle tool execution if needed
-        if response.stop_reason == "tool_use" and tool_manager:
-            return self._handle_tool_execution(response, api_params, tool_manager)
-        
-        # Return direct response
-        return self._extract_text(response)
-    
+
+        return self._get_response_text(api_params, tool_manager)
+
+    def _get_response_text(self, api_params: Dict[str, Any], tool_manager, max_attempts: int = 2) -> str:
+        """
+        Call the API and return the response text, handling tool execution.
+
+        Occasionally Claude ends its turn after internal reasoning without emitting
+        any visible text (an empty "text" content block) - retry a couple of times
+        before falling back to a clear message instead of returning blank text.
+        """
+        text = ""
+        for attempt in range(max_attempts):
+            response = self.client.messages.create(**api_params)
+
+            if response.stop_reason == "tool_use" and tool_manager:
+                return self._handle_tool_execution(response, api_params, tool_manager)
+
+            text = self._extract_text(response)
+            if text.strip():
+                return text
+
+        return text or "I wasn't able to generate a response for that question — please try asking again."
+
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
         Handle execution of tool calls and get follow-up response.
@@ -130,10 +143,10 @@ Provide only the direct answer to what was asked.
             "system": base_params["system"]
         }
         
-        # Get final response
-        final_response = self.client.messages.create(**final_params)
-        return self._extract_text(final_response)
+        # Get final response (tool_manager=None: tools aren't offered in final_params,
+        # so there's nothing left to execute - just retry on blank text)
+        return self._get_response_text(final_params, tool_manager=None)
 
     def _extract_text(self, response) -> str:
         """Get the text content from a response, skipping thinking/tool_use blocks."""
-        return next(block.text for block in response.content if block.type == "text")
+        return next((block.text for block in response.content if block.type == "text"), "")
