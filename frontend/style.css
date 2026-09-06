@@ -245,6 +245,21 @@ header h1 {
     color: var(--text-secondary);
 }
 
+.source-item {
+    padding: 0.15rem 0;
+}
+
+.source-link {
+    color: var(--primary-color);
+    text-decoration: underline;
+    text-decoration-color: rgba(37, 99, 235, 0.4);
+}
+
+.source-link:hover {
+    color: var(--primary-hover);
+    text-decoration-color: currentColor;
+}
+
 /* Markdown formatting styles */
 .message-content h1,
 .message-content h2,
