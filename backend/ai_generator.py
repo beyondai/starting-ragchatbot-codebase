@@ -10,6 +10,7 @@ class AIGenerator:
 Tool Usage:
 - **get_course_list**: use for questions about which courses exist, how many there are, or to list/enumerate the catalog (e.g. "what courses are available", "list all courses")
 - **search_course_content**: use **only** for questions about specific course content or detailed educational materials — it returns a handful of relevant excerpts, not the full catalog, so never use it to enumerate courses
+- **get_course_outline**: use for questions about a single course's structure, syllabus, or lesson list (e.g. "what lessons are in course X", "give me the outline of Y", "what does course Z cover") — when answering, always include the course title, the course link, and every lesson's number and title exactly as returned by the tool; do not omit or summarize the lesson list
 - **One tool call per query maximum**
 - Synthesize tool results into accurate, fact-based responses
 - If a tool yields no results, state this clearly without offering alternatives

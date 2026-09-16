@@ -142,6 +142,51 @@ class CourseListTool(Tool):
         return "\n".join(f"- {title}" for title in titles)
 
 
+class CourseOutlineTool(Tool):
+    """Tool for retrieving a single course's outline: title, link, and full lesson list"""
+
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for this tool"""
+        return {
+            "name": "get_course_outline",
+            "description": "Get a single course's outline: its title, course link, and the complete ordered list of lessons (lesson number and title for each). Use this for questions asking what a course covers, its structure, syllabus, or lesson list — NOT search_course_content (which returns content excerpts, not structure) and NOT get_course_list (which only lists course titles across the catalog, not one course's lessons).",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "course_name": {
+                        "type": "string",
+                        "description": "Course title (partial matches work, e.g. 'MCP', 'Introduction')"
+                    }
+                },
+                "required": ["course_name"]
+            }
+        }
+
+    def execute(self, course_name: str) -> str:
+        """Return the outline for the best-matching course"""
+        outline = self.store.get_course_outline(course_name)
+        if not outline:
+            return f"No course found matching '{course_name}'."
+
+        lines = [
+            f"Course Title: {outline['title']}",
+            f"Course Link: {outline['course_link'] or 'N/A'}",
+            "Lessons:"
+        ]
+        lessons = outline.get('lessons', [])
+        if not lessons:
+            lines.append("  (no lessons listed)")
+        else:
+            for lesson in lessons:
+                num = lesson.get('lesson_number', '?')
+                title = lesson.get('lesson_title', 'untitled')
+                lines.append(f"  {num}. {title}")
+        return "\n".join(lines)
+
+
 class ToolManager:
     """Manages available tools for the AI"""
     
