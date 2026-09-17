@@ -1,5 +1,4 @@
 """Tests for CourseSearchTool.execute() in backend/search_tools.py."""
-import pytest
 
 
 def test_execute_returns_formatted_results_and_sets_last_sources(course_search_tool):
@@ -33,16 +32,6 @@ def test_execute_with_course_and_lesson_filter_combined(course_search_tool):
     assert "Lesson 1" not in result
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BUG: VectorStore._resolve_course_name has no similarity threshold — "
-        "Chroma's n_results=1 query always returns the nearest course in a "
-        "non-empty catalog, so an unrelated/misspelled course_name silently "
-        "resolves to some course instead of failing. 'No course found matching' "
-        "is unreachable whenever the catalog is non-empty."
-    ),
-)
 def test_execute_with_nonexistent_course_name_returns_exact_error_string(course_search_tool):
     result = course_search_tool.execute(query="anything", course_name="Quantum Basketweaving")
 
@@ -68,12 +57,17 @@ def test_execute_search_error_from_chroma_exception_passes_through(course_search
     assert result == "Search error: boom"
 
 
-def test_execute_multiple_calls_overwrite_last_sources(course_search_tool):
+def test_execute_multiple_calls_accumulate_last_sources(course_search_tool):
+    """Two rounds both calling search_course_content (e.g. a comparison
+    query) must not lose the first round's sources - last_sources
+    accumulates across execute() calls within one query; ToolManager.reset_sources()
+    is what clears it between queries."""
     course_search_tool.execute(query="widget", lesson_number=0)
-    first_sources = course_search_tool.last_sources
+    first_sources = list(course_search_tool.last_sources)
 
     course_search_tool.execute(query="widget", lesson_number=1)
-    second_sources = course_search_tool.last_sources
+    all_sources = course_search_tool.last_sources
 
-    assert first_sources != second_sources
-    assert all("Lesson 1" in s["text"] for s in second_sources)
+    assert len(all_sources) > len(first_sources)
+    assert any("Lesson 0" in s["text"] for s in all_sources)
+    assert any("Lesson 1" in s["text"] for s in all_sources)

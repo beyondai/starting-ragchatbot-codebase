@@ -1,9 +1,50 @@
+import re
 import chromadb
 from chromadb.config import Settings
+from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from models import Course, CourseChunk
 from sentence_transformers import SentenceTransformer
+
+# Common words excluded from course-name lexical matching so a shared
+# stopword (e.g. both titles containing "with") doesn't count as a match.
+# Includes domain-generic words ("course", "lesson", ...) that show up in
+# almost every query/title and so carry no real matching signal here.
+_COURSE_NAME_STOPWORDS = frozenset({
+    "the", "and", "for", "with", "to", "of", "in", "on", "at", "is",
+    "it", "as", "an", "a", "by", "be", "are", "this", "that",
+    "course", "courses", "class", "classes", "lesson", "lessons",
+})
+# SequenceMatcher ratio above which two words are treated as "the same
+# word" for course-name matching, tolerant of a small typo (e.g. "Antropic").
+_WORD_MATCH_RATIO = 0.82
+# Below this squared-L2 embedding distance, treat the catalog's nearest
+# neighbor as a confident semantic match even with no shared words. Kept
+# tight (empirically, unrelated queries can score below 1.3 - e.g. any
+# query containing the generic word "course" skews toward a course title
+# on embedding distance alone) - every real partial-title match found in
+# testing also has lexical overlap, so this is a narrow safety net for
+# genuine near-exact/paraphrase matches, not the primary signal.
+_COURSE_DISTANCE_THRESHOLD = 1.0
+
+
+def _significant_words(text: str) -> set:
+    return {
+        w for w in re.findall(r"[a-z0-9]+", text.lower())
+        if len(w) >= 3 and w not in _COURSE_NAME_STOPWORDS
+    }
+
+
+def _shares_meaningful_word(query: str, title: str) -> bool:
+    """Whether query and title share a word (allowing a small typo)."""
+    query_words = _significant_words(query)
+    title_words = _significant_words(title)
+    return any(
+        qw == tw or SequenceMatcher(None, qw, tw).ratio() >= _WORD_MATCH_RATIO
+        for qw in query_words
+        for tw in title_words
+    )
 
 @dataclass
 class SearchResults:
@@ -100,19 +141,30 @@ class VectorStore:
             return SearchResults.empty(f"Search error: {str(e)}")
     
     def _resolve_course_name(self, course_name: str) -> Optional[str]:
-        """Use vector search to find best matching course by name"""
+        """Use vector search to find best matching course by name.
+
+        Chroma's n_results=1 query always returns *some* nearest neighbor
+        once the catalog is non-empty, so raw semantic distance alone can't
+        tell "close enough" apart from "nothing like this exists" - e.g. an
+        unrelated query can land at a smaller distance than a genuine
+        partial-title match. Only accept the top match if it's either a
+        confident semantic match (small distance) or shares a real word
+        with the matched title (allowing a small typo).
+        """
         try:
             results = self.course_catalog.query(
                 query_texts=[course_name],
                 n_results=1
             )
-            
+
             if results['documents'][0] and results['metadatas'][0]:
-                # Return the title (which is now the ID)
-                return results['metadatas'][0][0]['title']
+                title = results['metadatas'][0][0]['title']
+                distance = results['distances'][0][0]
+                if distance <= _COURSE_DISTANCE_THRESHOLD or _shares_meaningful_word(course_name, title):
+                    return title
         except Exception as e:
             print(f"Error resolving course name: {e}")
-        
+
         return None
     
     def _build_filter(self, course_title: Optional[str], lesson_number: Optional[int]) -> Optional[Dict]:

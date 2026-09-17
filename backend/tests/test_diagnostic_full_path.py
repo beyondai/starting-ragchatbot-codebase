@@ -13,6 +13,7 @@ from rag_system import RAGSystem
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COURSE1_PATH = REPO_ROOT / "docs" / "course1_script.txt"
+DOCS_DIR = REPO_ROOT / "docs"
 
 
 @pytest.fixture
@@ -25,6 +26,23 @@ def real_ingested_vector_store(tmp_chroma_path):
     store.add_course_metadata(course)
     store.add_course_content(chunks)
     return store, course
+
+
+@pytest.fixture
+def all_real_courses_vector_store(tmp_chroma_path):
+    """Ingests all 4 real docs/ courses - used to regression-test
+    VectorStore._resolve_course_name's false-positive fix across multiple
+    real, semantically-related-but-distinct course titles (a single-course
+    fixture can't exercise cross-course confusion)."""
+    from vector_store import VectorStore
+
+    store = VectorStore(tmp_chroma_path, "all-MiniLM-L6-v2", max_results=5)
+    processor = DocumentProcessor(chunk_size=800, chunk_overlap=100)
+    for doc_path in sorted(DOCS_DIR.glob("*.txt")):
+        course, chunks = processor.process_course_document(str(doc_path))
+        store.add_course_metadata(course)
+        store.add_course_content(chunks)
+    return store
 
 
 def test_real_document_processing_produces_searchable_chunks(real_ingested_vector_store):
@@ -46,6 +64,31 @@ def test_real_document_processing_course_search_tool_end_to_end(real_ingested_ve
     assert tool.last_sources
 
 
+def test_resolve_course_name_rejects_semantically_nearby_wrong_topic(all_real_courses_vector_store):
+    """Regression test for the fixed VectorStore._resolve_course_name bug.
+
+    'Deep Learning Specialization' empirically has a *smaller* embedding
+    distance to a real course title than some genuine partial-title matches
+    do (see the investigation that led to this fix), so a naive distance
+    threshold can't separate it - only the combined distance+lexical check
+    correctly rejects it.
+    """
+    store = all_real_courses_vector_store
+
+    assert store._resolve_course_name("Deep Learning Specialization") is None
+    assert store._resolve_course_name("Introduction to Python Programming") is None
+    assert store._resolve_course_name("The Great Gatsby") is None
+
+
+def test_resolve_course_name_still_matches_real_partial_titles(all_real_courses_vector_store):
+    store = all_real_courses_vector_store
+
+    assert store._resolve_course_name("MCP") == "MCP: Build Rich-Context AI Apps with Anthropic"
+    assert store._resolve_course_name("Chroma") == "Advanced Retrieval for AI with Chroma"
+    assert store._resolve_course_name("computer use") == "Building Towards Computer Use with Anthropic"
+    assert store._resolve_course_name("Prompt Compression") == "Prompt Compression and Query Optimization"
+
+
 @pytest.mark.live
 def test_real_pipeline_with_live_anthropic_call(tmp_chroma_path):
     """Opt-in only: exercises the real, unmocked Anthropic API against the
@@ -57,9 +100,8 @@ def test_real_pipeline_with_live_anthropic_call(tmp_chroma_path):
     - NotFoundError/BadRequestError mentioning "model" -> invalid ANTHROPIC_MODEL.
     - AuthenticationError -> the checked-in .env key is dead, rotate it.
     - Fallback string returned, no exception, but sources non-empty ->
-      confirms the AIGenerator._handle_tool_execution bug (tool ran fine,
-      the real answer got swallowed by the no-tools follow-up + blank-text
-      fallback path).
+      a tool ran fine but the answer still got swallowed - see
+      AIGenerator._run_tool_loop/_response_to_text for where that path lives.
     """
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:

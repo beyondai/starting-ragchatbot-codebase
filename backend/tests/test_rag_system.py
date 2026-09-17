@@ -86,15 +86,6 @@ def test_query_without_session_id_does_not_create_session(rag_system):
     assert rag_system.session_manager.sessions == {}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BUG: VectorStore._resolve_course_name has no similarity threshold — "
-        "a non-empty catalog always resolves any course_name to its nearest "
-        "neighbor, so this never reaches the 'No course found matching' path. "
-        "See test_course_search_tool.py for the isolated repro."
-    ),
-)
 def test_content_query_with_unresolvable_course_surfaces_no_course_found(rag_system):
     def fake_generate_response(query, conversation_history=None, tools=None, tool_manager=None):
         return tool_manager.execute_tool(
