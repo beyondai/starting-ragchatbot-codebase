@@ -20,15 +20,22 @@ cd backend && uv run uvicorn app:app --reload --port 8000
 - API docs (Swagger): http://localhost:8000/docs
 - Requires a `.env` file in the repo root with `ANTHROPIC_API_KEY=...` (see `.env.example`)
 
-Tests live in `backend/tests` (pytest, configured in `pyproject.toml` under `[tool.pytest.ini_options]`). No linter or formatter is configured.
+### Tests and code quality
+
+Tests live in `backend/tests` (pytest, configured in `pyproject.toml` under `[tool.pytest.ini_options]`).
 
 ```bash
 uv run pytest            # unit + API tests (tests marked `live` are excluded by default)
 uv run pytest -m api     # only the FastAPI endpoint tests
 uv run pytest -m live    # hits the real Anthropic API, needs ANTHROPIC_API_KEY
+./scripts/format.sh      # auto-format: isort then black (in place)
+./scripts/lint.sh        # check only: isort --check, black --check, flake8 (no edits)
+./scripts/check.sh       # full gate: lint + pytest; run before committing
 ```
 
 `backend/tests/conftest.py` never imports `backend/app.py` (it builds a real `RAGSystem` and mounts `../frontend` relative to CWD at import time). API tests instead use `create_test_app()` in `conftest.py`, which mirrors `app.py`'s routes/models around an injectable (mocked) `RAGSystem` - keep it in sync when adding or changing endpoints. On macOS x86_64 (no torch wheel) run the suite through Docker: `docker run --rm -v "$PWD:/app" -v starting-ragchatbot-codebase_venv:/app/.venv -w /app starting-ragchatbot-codebase-app uv run --no-sync pytest`.
+
+Formatting is owned by **black** (line length 88, target py313) with **isort** (`profile = "black"`) for imports; config lives in `pyproject.toml`. **flake8** (config in `.flake8`) only reports what black cannot fix (unused imports, undefined names, etc.) and ignores E203/E501/W503 to stay black-compatible. All new/edited Python should pass `./scripts/lint.sh`. Two files intentionally have imports after setup code and are exempt from E402 via `per-file-ignores`: `backend/app.py` (warnings filter must precede heavy imports) and `backend/tests/conftest.py` (`sys.path` patch) - both use a `# isort: split` marker so isort does not hoist imports across that boundary.
 
 ## Architecture
 

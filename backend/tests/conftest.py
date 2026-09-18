@@ -6,6 +6,7 @@ relative to CWD. Tests instead build VectorStore/RAGSystem directly
 against an isolated tmp_path-based Chroma dir, and API tests run against
 a mirror of app.py's endpoints built by create_test_app() below.
 """
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,11 +23,17 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+# isort: split
 
-from models import Course, Lesson, CourseChunk
+from models import Course, CourseChunk, Lesson
+from search_tools import (
+    CourseListTool,
+    CourseOutlineTool,
+    CourseSearchTool,
+    ToolManager,
+)
 from session_manager import SessionManager
 from vector_store import VectorStore
-from search_tools import CourseSearchTool, CourseListTool, CourseOutlineTool, ToolManager
 
 
 @pytest.fixture
@@ -41,8 +48,16 @@ def sample_course():
         course_link="https://example.com/course",
         instructor="Ada Lovelace",
         lessons=[
-            Lesson(lesson_number=0, title="Introduction", lesson_link="https://example.com/l0"),
-            Lesson(lesson_number=1, title="Advanced Widgets", lesson_link="https://example.com/l1"),
+            Lesson(
+                lesson_number=0,
+                title="Introduction",
+                lesson_link="https://example.com/l0",
+            ),
+            Lesson(
+                lesson_number=1,
+                title="Advanced Widgets",
+                lesson_link="https://example.com/l1",
+            ),
         ],
     )
 
@@ -138,6 +153,7 @@ def response_factory():
 # API test app
 # ---------------------------------------------------------------------------
 
+
 class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
@@ -201,7 +217,9 @@ def create_test_app(rag_system, frontend_dir: Optional[Path] = None) -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     if frontend_dir is not None:
-        app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="static")
+        app.mount(
+            "/", StaticFiles(directory=str(frontend_dir), html=True), name="static"
+        )
 
     return app
 
@@ -214,7 +232,10 @@ def mock_rag_system():
     rag.query.return_value = (
         "Widgets rotate on an axle.",
         [
-            {"text": "Test Course: Intro to Widgets - Lesson 1", "link": "https://example.com/l1"},
+            {
+                "text": "Test Course: Intro to Widgets - Lesson 1",
+                "link": "https://example.com/l1",
+            },
             {"text": "Test Course: Intro to Widgets - Lesson 0", "link": None},
         ],
     )

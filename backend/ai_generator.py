@@ -1,9 +1,11 @@
+from typing import Any, Dict, List, Optional
+
 import anthropic
-from typing import List, Optional, Dict, Any
+
 
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
-    
+
     # Static system prompt to avoid rebuilding on each call
     SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to tools for course information.
 
@@ -42,17 +44,17 @@ Provide only the direct answer to what was asked.
     def __init__(self, api_key: str, model: str):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
-        
+
         # Pre-build base API parameters
-        self.base_params = {
-            "model": self.model,
-            "max_tokens": 800
-        }
-    
-    def generate_response(self, query: str,
-                         conversation_history: Optional[str] = None,
-                         tools: Optional[List] = None,
-                         tool_manager=None) -> str:
+        self.base_params = {"model": self.model, "max_tokens": 800}
+
+    def generate_response(
+        self,
+        query: str,
+        conversation_history: Optional[str] = None,
+        tools: Optional[List] = None,
+        tool_manager=None,
+    ) -> str:
         """
         Generate AI response, allowing up to MAX_TOOL_ROUNDS sequential tool
         calls (each a separate API round, so Claude can reason about one
@@ -78,8 +80,13 @@ Provide only the direct answer to what was asked.
             else self.SYSTEM_PROMPT
         )
 
-    def _run_tool_loop(self, messages: List[Dict[str, Any]], system_content: str,
-                        tools: Optional[List], tool_manager) -> str:
+    def _run_tool_loop(
+        self,
+        messages: List[Dict[str, Any]],
+        system_content: str,
+        tools: Optional[List],
+        tool_manager,
+    ) -> str:
         """Runs up to MAX_TOOL_ROUNDS rounds of tool calling, then forces a
         final tools-omitted call to synthesize an answer if the cap is
         reached (or a tool call hard-fails) before Claude returns text."""
@@ -91,13 +98,17 @@ Provide only the direct answer to what was asked.
         can_use_tools = bool(tools and tool_manager)
 
         for _round_num in range(1, self.MAX_TOOL_ROUNDS + 1):
-            response = self._call_claude(messages, system_content, tools if can_use_tools else None)
+            response = self._call_claude(
+                messages, system_content, tools if can_use_tools else None
+            )
 
             if response.stop_reason != "tool_use" or not can_use_tools:
                 return self._response_to_text(response)
 
             messages.append({"role": "assistant", "content": response.content})
-            tool_results, hard_failure = self._execute_tool_round(response.content, tool_manager)
+            tool_results, hard_failure = self._execute_tool_round(
+                response.content, tool_manager
+            )
             messages.append({"role": "user", "content": tool_results})
 
             if hard_failure:
@@ -109,11 +120,13 @@ Provide only the direct answer to what was asked.
         final_response = self._call_claude(messages, system_content, tools=None)
         return self._response_to_text(final_response)
 
-    def _call_claude(self, messages: List[Dict[str, Any]], system_content: str, tools: Optional[List]):
+    def _call_claude(
+        self, messages: List[Dict[str, Any]], system_content: str, tools: Optional[List]
+    ):
         api_params = {
             **self.base_params,
             "messages": messages,
-            "system": system_content
+            "system": system_content,
         }
         if tools:
             api_params["tools"] = tools
@@ -162,28 +175,37 @@ Provide only the direct answer to what was asked.
                 continue
             try:
                 result_text = tool_manager.execute_tool(
-                    content_block.name,
-                    **content_block.input
+                    content_block.name, **content_block.input
                 )
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": content_block.id,
-                    "content": result_text
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": content_block.id,
+                        "content": result_text,
+                    }
+                )
             except Exception as exc:
                 hard_failure = True
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": content_block.id,
-                    "content": f"Tool execution failed: {exc}",
-                    "is_error": True
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": content_block.id,
+                        "content": f"Tool execution failed: {exc}",
+                        "is_error": True,
+                    }
+                )
         return tool_results, hard_failure
 
     def _response_to_text(self, response) -> str:
         text = self._extract_text(response)
-        return text if text.strip() else "I wasn't able to generate a response for that question — please try asking again."
+        return (
+            text
+            if text.strip()
+            else "I wasn't able to generate a response for that question — please try asking again."
+        )
 
     def _extract_text(self, response) -> str:
         """Get the text content from a response, skipping thinking/tool_use blocks."""
-        return next((block.text for block in response.content if block.type == "text"), "")
+        return next(
+            (block.text for block in response.content if block.type == "text"), ""
+        )

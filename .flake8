@@ -1,0 +1,21 @@
+[flake8]
+# Black owns formatting; flake8 only reports things black cannot fix.
+max-line-length = 88
+extend-ignore =
+    # whitespace before ':' (conflicts with black's slice formatting)
+    E203,
+    # line too long (black wraps what it can; long strings/URLs are allowed)
+    E501,
+    # line break before binary operator (black's preferred style)
+    W503
+exclude =
+    .git,
+    .venv,
+    .trees,
+    __pycache__,
+    backend/chroma_db
+per-file-ignores =
+    # warnings filter must run before the heavy imports it silences
+    backend/app.py:E402
+    # sys.path is patched before backend modules can be imported
+    backend/tests/conftest.py:E402

@@ -4,12 +4,14 @@ Runs against create_test_app() (conftest.py) with a mocked RAGSystem, so
 these cover request validation, response shapes, session handling and
 error mapping, not retrieval or generation.
 """
+
 import pytest
 
 pytestmark = pytest.mark.api
 
 
 # --- POST /api/query -------------------------------------------------------
+
 
 def test_query_returns_answer_sources_and_session(client, mock_rag_system):
     resp = client.post("/api/query", json={"query": "Tell me about widget rotation"})
@@ -19,7 +21,10 @@ def test_query_returns_answer_sources_and_session(client, mock_rag_system):
     assert set(body.keys()) == {"answer", "sources", "session_id"}
     assert body["answer"] == "Widgets rotate on an axle."
     assert body["sources"] == [
-        {"text": "Test Course: Intro to Widgets - Lesson 1", "link": "https://example.com/l1"},
+        {
+            "text": "Test Course: Intro to Widgets - Lesson 1",
+            "link": "https://example.com/l1",
+        },
         {"text": "Test Course: Intro to Widgets - Lesson 0", "link": None},
     ]
     assert body["session_id"] == "session_1"
@@ -34,7 +39,9 @@ def test_query_creates_session_when_none_provided(client, mock_rag_system):
 
 
 def test_query_reuses_provided_session_id(client, mock_rag_system):
-    resp = client.post("/api/query", json={"query": "follow-up", "session_id": "session_42"})
+    resp = client.post(
+        "/api/query", json={"query": "follow-up", "session_id": "session_42"}
+    )
 
     assert resp.status_code == 200
     assert resp.json()["session_id"] == "session_42"
@@ -74,8 +81,9 @@ def test_query_wrong_query_type_is_422(client, mock_rag_system):
 
 
 def test_query_non_json_body_is_422(client):
-    resp = client.post("/api/query", content="query=hello",
-                       headers={"Content-Type": "text/plain"})
+    resp = client.post(
+        "/api/query", content="query=hello", headers={"Content-Type": "text/plain"}
+    )
 
     assert resp.status_code == 422
 
@@ -101,6 +109,7 @@ def test_query_malformed_sources_from_rag_is_500(client, mock_rag_system):
 
 # --- DELETE /api/session/{session_id} ---------------------------------------
 
+
 def test_delete_session_removes_history(client, mock_rag_system):
     sm = mock_rag_system.session_manager
     sid = sm.create_session()
@@ -122,6 +131,7 @@ def test_delete_unknown_session_is_still_success(client):
 
 # --- GET /api/courses --------------------------------------------------------
 
+
 def test_courses_returns_stats(client, mock_rag_system):
     resp = client.get("/api/courses")
 
@@ -134,7 +144,10 @@ def test_courses_returns_stats(client, mock_rag_system):
 
 
 def test_courses_empty_catalog(client, mock_rag_system):
-    mock_rag_system.get_course_analytics.return_value = {"total_courses": 0, "course_titles": []}
+    mock_rag_system.get_course_analytics.return_value = {
+        "total_courses": 0,
+        "course_titles": [],
+    }
 
     resp = client.get("/api/courses")
 
@@ -158,6 +171,7 @@ def test_courses_rejects_post(client):
 
 
 # --- GET / (static frontend) ------------------------------------------------
+
 
 def test_root_serves_frontend_index(client):
     resp = client.get("/")
@@ -189,8 +203,8 @@ def test_api_routes_take_precedence_over_static_mount(client):
 
 
 def test_app_without_frontend_dir_has_no_static_root(mock_rag_system):
-    from fastapi.testclient import TestClient
     from conftest import create_test_app
+    from fastapi.testclient import TestClient
 
     with TestClient(create_test_app(mock_rag_system)) as c:
         assert c.get("/").status_code == 404
