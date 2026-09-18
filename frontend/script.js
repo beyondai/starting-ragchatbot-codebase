@@ -5,7 +5,12 @@ const API_URL = '/api';
 let currentSessionId = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, newChatButton, totalCourses, courseTitles;
+let chatMessages, chatInput, sendButton, newChatButton, totalCourses, courseTitles, themeToggle;
+
+const THEME_STORAGE_KEY = 'theme';
+
+// Apply the saved theme as early as possible to avoid a flash of the wrong theme
+applyTheme(getSavedTheme());
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     newChatButton = document.getElementById('newChatButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
+    themeToggle = document.getElementById('themeToggle');
 
+    updateThemeToggle(getCurrentTheme());
     setupEventListeners();
     createNewSession();
     loadCourseStats();
@@ -33,6 +40,9 @@ function setupEventListeners() {
     // New chat
     newChatButton.addEventListener('click', startNewChat);
 
+    // Theme toggle (native <button>, so Enter/Space already trigger click)
+    themeToggle.addEventListener('click', toggleTheme);
+
 
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
@@ -44,6 +54,47 @@ function setupEventListeners() {
     });
 }
 
+
+// Theme Functions
+function getSavedTheme() {
+    try {
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        if (saved === 'light' || saved === 'dark') return saved;
+    } catch (e) {
+        // localStorage may be unavailable; fall through to default
+    }
+    return 'dark';
+}
+
+function getCurrentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+    if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+}
+
+function updateThemeToggle(theme) {
+    if (!themeToggle) return;
+    const isLight = theme === 'light';
+    themeToggle.setAttribute('aria-pressed', String(isLight));
+    themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+}
+
+function toggleTheme() {
+    const next = getCurrentTheme() === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    updateThemeToggle(next);
+    try {
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch (e) {
+        // ignore persistence errors
+    }
+}
 
 // Chat Functions
 async function sendMessage() {
