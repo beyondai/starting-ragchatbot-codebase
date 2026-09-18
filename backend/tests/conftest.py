@@ -106,6 +106,11 @@ def course_search_tool(vector_store):
 
 
 @pytest.fixture
+def course_outline_tool(vector_store):
+    return CourseOutlineTool(vector_store)
+
+
+@pytest.fixture
 def tool_manager(vector_store):
     manager = ToolManager()
     manager.register_tool(CourseSearchTool(vector_store))

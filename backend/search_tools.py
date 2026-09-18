@@ -150,6 +150,7 @@ class CourseOutlineTool(Tool):
 
     def __init__(self, vector_store: VectorStore):
         self.store = vector_store
+        self.last_sources = []  # Track sources from last outline lookup
 
     def get_tool_definition(self) -> Dict[str, Any]:
         """Return Anthropic tool definition for this tool"""
@@ -187,6 +188,14 @@ class CourseOutlineTool(Tool):
                 num = lesson.get("lesson_number", "?")
                 title = lesson.get("lesson_title", "untitled")
                 lines.append(f"  {num}. {title}")
+
+        # Accumulate across multiple execute() calls within one query (e.g.
+        # comparing two courses' outlines), same as CourseSearchTool -
+        # ToolManager.reset_sources() clears this at the start of each query.
+        self.last_sources.append(
+            {"text": outline["title"], "link": outline["course_link"]}
+        )
+
         return "\n".join(lines)
 
 
