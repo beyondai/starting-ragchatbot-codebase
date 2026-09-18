@@ -1,6 +1,7 @@
 """Bug-hunting integration tests using real ingested course data, to
 diagnose why content-related queries return a failure in the running app.
 """
+
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from document_processor import DocumentProcessor
-from search_tools import CourseSearchTool
 from rag_system import RAGSystem
+from search_tools import CourseSearchTool
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COURSE1_PATH = REPO_ROOT / "docs" / "course1_script.txt"
@@ -45,7 +46,9 @@ def all_real_courses_vector_store(tmp_chroma_path):
     return store
 
 
-def test_real_document_processing_produces_searchable_chunks(real_ingested_vector_store):
+def test_real_document_processing_produces_searchable_chunks(
+    real_ingested_vector_store,
+):
     store, _course = real_ingested_vector_store
 
     results = store.search(query="computer use")
@@ -54,7 +57,9 @@ def test_real_document_processing_produces_searchable_chunks(real_ingested_vecto
     assert not results.is_empty()
 
 
-def test_real_document_processing_course_search_tool_end_to_end(real_ingested_vector_store):
+def test_real_document_processing_course_search_tool_end_to_end(
+    real_ingested_vector_store,
+):
     store, course = real_ingested_vector_store
     tool = CourseSearchTool(store)
 
@@ -64,7 +69,9 @@ def test_real_document_processing_course_search_tool_end_to_end(real_ingested_ve
     assert tool.last_sources
 
 
-def test_resolve_course_name_rejects_semantically_nearby_wrong_topic(all_real_courses_vector_store):
+def test_resolve_course_name_rejects_semantically_nearby_wrong_topic(
+    all_real_courses_vector_store,
+):
     """Regression test for the fixed VectorStore._resolve_course_name bug.
 
     'Deep Learning Specialization' empirically has a *smaller* embedding
@@ -80,13 +87,26 @@ def test_resolve_course_name_rejects_semantically_nearby_wrong_topic(all_real_co
     assert store._resolve_course_name("The Great Gatsby") is None
 
 
-def test_resolve_course_name_still_matches_real_partial_titles(all_real_courses_vector_store):
+def test_resolve_course_name_still_matches_real_partial_titles(
+    all_real_courses_vector_store,
+):
     store = all_real_courses_vector_store
 
-    assert store._resolve_course_name("MCP") == "MCP: Build Rich-Context AI Apps with Anthropic"
-    assert store._resolve_course_name("Chroma") == "Advanced Retrieval for AI with Chroma"
-    assert store._resolve_course_name("computer use") == "Building Towards Computer Use with Anthropic"
-    assert store._resolve_course_name("Prompt Compression") == "Prompt Compression and Query Optimization"
+    assert (
+        store._resolve_course_name("MCP")
+        == "MCP: Build Rich-Context AI Apps with Anthropic"
+    )
+    assert (
+        store._resolve_course_name("Chroma") == "Advanced Retrieval for AI with Chroma"
+    )
+    assert (
+        store._resolve_course_name("computer use")
+        == "Building Towards Computer Use with Anthropic"
+    )
+    assert (
+        store._resolve_course_name("Prompt Compression")
+        == "Prompt Compression and Query Optimization"
+    )
 
 
 @pytest.mark.live
@@ -123,8 +143,13 @@ def test_real_pipeline_with_live_anthropic_call(tmp_chroma_path):
     rag_system.vector_store.add_course_metadata(course)
     rag_system.vector_store.add_course_content(chunks)
 
-    response, sources = rag_system.query("What is computer use, according to the course?")
+    response, sources = rag_system.query(
+        "What is computer use, according to the course?"
+    )
 
     print(f"\nLIVE DIAGNOSTIC RESULT:\nresponse={response!r}\nsources={sources!r}")
     assert response
-    assert response != "I wasn't able to generate a response for that question — please try asking again."
+    assert (
+        response
+        != "I wasn't able to generate a response for that question — please try asking again."
+    )

@@ -5,6 +5,7 @@ against the live ./chroma_db at import time and mounts StaticFiles
 relative to CWD. Tests instead build VectorStore/RAGSystem directly
 against an isolated tmp_path-based Chroma dir.
 """
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,10 +16,16 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+# isort: split
 
-from models import Course, Lesson, CourseChunk
+from models import Course, CourseChunk, Lesson
+from search_tools import (
+    CourseListTool,
+    CourseOutlineTool,
+    CourseSearchTool,
+    ToolManager,
+)
 from vector_store import VectorStore
-from search_tools import CourseSearchTool, CourseListTool, CourseOutlineTool, ToolManager
 
 
 @pytest.fixture
@@ -33,8 +40,16 @@ def sample_course():
         course_link="https://example.com/course",
         instructor="Ada Lovelace",
         lessons=[
-            Lesson(lesson_number=0, title="Introduction", lesson_link="https://example.com/l0"),
-            Lesson(lesson_number=1, title="Advanced Widgets", lesson_link="https://example.com/l1"),
+            Lesson(
+                lesson_number=0,
+                title="Introduction",
+                lesson_link="https://example.com/l0",
+            ),
+            Lesson(
+                lesson_number=1,
+                title="Advanced Widgets",
+                lesson_link="https://example.com/l1",
+            ),
         ],
     )
 

@@ -1,4 +1,5 @@
 """Tests for RAGSystem.query()'s handling of content-related queries, in backend/rag_system.py."""
+
 import pytest
 
 from rag_system import RAGSystem
@@ -14,7 +15,9 @@ def rag_system(fake_config, sample_course, sample_chunks, mocker):
 
 
 def test_content_query_triggers_search_tool_and_returns_sources(rag_system):
-    def fake_generate_response(query, conversation_history=None, tools=None, tool_manager=None):
+    def fake_generate_response(
+        query, conversation_history=None, tools=None, tool_manager=None
+    ):
         tool_manager.execute_tool("search_course_content", query="widget rotation")
         return "Widgets rotate on an axle."
 
@@ -29,7 +32,9 @@ def test_content_query_triggers_search_tool_and_returns_sources(rag_system):
 
 
 def test_general_knowledge_query_never_invokes_search(rag_system, mocker):
-    rag_system.ai_generator.generate_response.return_value = "The sky is blue due to Rayleigh scattering."
+    rag_system.ai_generator.generate_response.return_value = (
+        "The sky is blue due to Rayleigh scattering."
+    )
     spy = mocker.spy(rag_system.tool_manager, "execute_tool")
 
     response, sources = rag_system.query("Why is the sky blue?")
@@ -40,7 +45,9 @@ def test_general_knowledge_query_never_invokes_search(rag_system, mocker):
 
 
 def test_sources_reset_between_calls(rag_system):
-    def fake_generate_response(query, conversation_history=None, tools=None, tool_manager=None):
+    def fake_generate_response(
+        query, conversation_history=None, tools=None, tool_manager=None
+    ):
         tool_manager.execute_tool("search_course_content", query="widget rotation")
         return "answer with sources"
 
@@ -62,7 +69,9 @@ def test_session_history_passed_to_ai_generator_on_second_call(rag_system):
     rag_system.ai_generator.generate_response.return_value = "second answer"
     rag_system.query("second question", session_id="session_1")
 
-    second_call_kwargs = rag_system.ai_generator.generate_response.call_args_list[1].kwargs
+    second_call_kwargs = rag_system.ai_generator.generate_response.call_args_list[
+        1
+    ].kwargs
     history = second_call_kwargs["conversation_history"]
     assert history is not None
     assert "first question" in history
@@ -75,7 +84,10 @@ def test_query_wraps_prompt_before_passing_to_ai_generator(rag_system):
     rag_system.query("What is a widget?")
 
     call_kwargs = rag_system.ai_generator.generate_response.call_args.kwargs
-    assert call_kwargs["query"] == "Answer this question about course materials: What is a widget?"
+    assert (
+        call_kwargs["query"]
+        == "Answer this question about course materials: What is a widget?"
+    )
 
 
 def test_query_without_session_id_does_not_create_session(rag_system):
@@ -87,9 +99,13 @@ def test_query_without_session_id_does_not_create_session(rag_system):
 
 
 def test_content_query_with_unresolvable_course_surfaces_no_course_found(rag_system):
-    def fake_generate_response(query, conversation_history=None, tools=None, tool_manager=None):
+    def fake_generate_response(
+        query, conversation_history=None, tools=None, tool_manager=None
+    ):
         return tool_manager.execute_tool(
-            "search_course_content", query="anything", course_name="Nonexistent Course XYZ"
+            "search_course_content",
+            query="anything",
+            course_name="Nonexistent Course XYZ",
         )
 
     rag_system.ai_generator.generate_response.side_effect = fake_generate_response

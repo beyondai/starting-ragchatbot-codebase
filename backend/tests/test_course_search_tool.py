@@ -32,14 +32,20 @@ def test_execute_with_course_and_lesson_filter_combined(course_search_tool):
     assert "Lesson 1" not in result
 
 
-def test_execute_with_nonexistent_course_name_returns_exact_error_string(course_search_tool):
-    result = course_search_tool.execute(query="anything", course_name="Quantum Basketweaving")
+def test_execute_with_nonexistent_course_name_returns_exact_error_string(
+    course_search_tool,
+):
+    result = course_search_tool.execute(
+        query="anything", course_name="Quantum Basketweaving"
+    )
 
     assert result == "No course found matching 'Quantum Basketweaving'"
     assert course_search_tool.last_sources == []
 
 
-def test_execute_with_valid_filters_but_zero_matches_returns_no_content_message(course_search_tool):
+def test_execute_with_valid_filters_but_zero_matches_returns_no_content_message(
+    course_search_tool,
+):
     result = course_search_tool.execute(
         query="widget", course_name="Widgets", lesson_number=99
     )
@@ -49,8 +55,12 @@ def test_execute_with_valid_filters_but_zero_matches_returns_no_content_message(
     assert result == "No relevant content found in course 'Widgets' in lesson 99."
 
 
-def test_execute_search_error_from_chroma_exception_passes_through(course_search_tool, vector_store, mocker):
-    mocker.patch.object(vector_store.course_content, "query", side_effect=Exception("boom"))
+def test_execute_search_error_from_chroma_exception_passes_through(
+    course_search_tool, vector_store, mocker
+):
+    mocker.patch.object(
+        vector_store.course_content, "query", side_effect=Exception("boom")
+    )
 
     result = course_search_tool.execute(query="anything")
 

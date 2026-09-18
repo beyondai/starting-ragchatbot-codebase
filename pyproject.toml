@@ -16,6 +16,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "black>=25.1,<26",
+    "flake8>=7.1,<8",
+    "isort>=6.0,<7",
     "pytest>=8.3,<9",
     "pytest-mock>=3.14,<4",
 ]
@@ -27,3 +30,21 @@ addopts = "-ra -m \"not live\""
 markers = [
     "live: hits the real Anthropic API (needs a valid ANTHROPIC_API_KEY, costs tokens, run manually)",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+extend-exclude = '''
+/(
+    \.venv
+  | \.trees
+  | backend/chroma_db
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["backend", "main.py"]
+skip_gitignore = true
+extend_skip = [".trees", "chroma_db"]

@@ -20,7 +20,16 @@ cd backend && uv run uvicorn app:app --reload --port 8000
 - API docs (Swagger): http://localhost:8000/docs
 - Requires a `.env` file in the repo root with `ANTHROPIC_API_KEY=...` (see `.env.example`)
 
-There is no test suite, linter, or formatter configured in this repo currently.
+### Tests and code quality
+
+```bash
+uv run pytest            # test suite (backend/tests, config in pyproject.toml)
+./scripts/format.sh      # auto-format: isort then black (in place)
+./scripts/lint.sh        # check only: isort --check, black --check, flake8 (no edits)
+./scripts/check.sh       # full gate: lint + pytest; run before committing
+```
+
+Formatting is owned by **black** (line length 88, target py313) with **isort** (`profile = "black"`) for imports; config lives in `pyproject.toml`. **flake8** (config in `.flake8`) only reports what black cannot fix (unused imports, undefined names, etc.) and ignores E203/E501/W503 to stay black-compatible. All new/edited Python should pass `./scripts/lint.sh`. Two files intentionally have imports after setup code and are exempt from E402 via `per-file-ignores`: `backend/app.py` (warnings filter must precede heavy imports) and `backend/tests/conftest.py` (`sys.path` patch) - both use a `# isort: split` marker so isort does not hoist imports across that boundary.
 
 ## Architecture
 
