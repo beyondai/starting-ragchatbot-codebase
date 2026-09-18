@@ -20,7 +20,15 @@ cd backend && uv run uvicorn app:app --reload --port 8000
 - API docs (Swagger): http://localhost:8000/docs
 - Requires a `.env` file in the repo root with `ANTHROPIC_API_KEY=...` (see `.env.example`)
 
-There is no test suite, linter, or formatter configured in this repo currently.
+Tests live in `backend/tests` (pytest, configured in `pyproject.toml` under `[tool.pytest.ini_options]`). No linter or formatter is configured.
+
+```bash
+uv run pytest            # unit + API tests (tests marked `live` are excluded by default)
+uv run pytest -m api     # only the FastAPI endpoint tests
+uv run pytest -m live    # hits the real Anthropic API, needs ANTHROPIC_API_KEY
+```
+
+`backend/tests/conftest.py` never imports `backend/app.py` (it builds a real `RAGSystem` and mounts `../frontend` relative to CWD at import time). API tests instead use `create_test_app()` in `conftest.py`, which mirrors `app.py`'s routes/models around an injectable (mocked) `RAGSystem` - keep it in sync when adding or changing endpoints. On macOS x86_64 (no torch wheel) run the suite through Docker: `docker run --rm -v "$PWD:/app" -v starting-ragchatbot-codebase_venv:/app/.venv -w /app starting-ragchatbot-codebase-app uv run --no-sync pytest`.
 
 ## Architecture
 
